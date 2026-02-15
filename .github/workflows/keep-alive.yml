@@ -1,0 +1,40 @@
+name: Supabase Keep Alive
+
+on:
+  schedule:
+    # 5日ごとに実行（UTC 0:00 = JST 9:00）
+    - cron: '0 0 */5 * *'
+  workflow_dispatch: # 手動実行も可能
+
+jobs:
+  keep-alive:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping rokomo-check-app
+        run: |
+          response=$(curl -s -o /dev/null -w "%{http_code}" \
+            "${{ secrets.ROKOMO_SUPABASE_URL }}/rest/v1/" \
+            -H "apikey: ${{ secrets.ROKOMO_SUPABASE_ANON_KEY }}" \
+            -H "Authorization: Bearer ${{ secrets.ROKOMO_SUPABASE_ANON_KEY }}")
+          echo "rokomo-check-app: HTTP $response"
+          if [ "$response" -ge 400 ]; then
+            echo "::warning::rokomo-check-app returned HTTP $response"
+          fi
+
+      - name: Ping stroke-risk-check
+        run: |
+          response=$(curl -s -o /dev/null -w "%{http_code}" \
+            "${{ secrets.STROKE_SUPABASE_URL }}/rest/v1/" \
+            -H "apikey: ${{ secrets.STROKE_SUPABASE_ANON_KEY }}" \
+            -H "Authorization: Bearer ${{ secrets.STROKE_SUPABASE_ANON_KEY }}")
+          echo "stroke-risk-check: HTTP $response"
+          if [ "$response" -ge 400 ]; then
+            echo "::warning::stroke-risk-check returned HTTP $response"
+          fi
+
+      - name: Summary
+        run: |
+          echo "## Supabase Keep Alive Results" >> $GITHUB_STEP_SUMMARY
+          echo "- rokomo-check-app: pinged" >> $GITHUB_STEP_SUMMARY
+          echo "- stroke-risk-check: pinged" >> $GITHUB_STEP_SUMMARY
+          echo "- Time: $(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_STEP_SUMMARY
