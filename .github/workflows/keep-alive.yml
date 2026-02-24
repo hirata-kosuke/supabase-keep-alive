@@ -12,73 +12,89 @@ jobs:
     steps:
       # --- rokomo-check-app ---
       - name: Ping rokomo-check-app (REST API)
+        continue-on-error: true
         run: |
-          response=$(curl -s -o /dev/null -w "%{http_code}" \
+          response=$(curl -s -o /dev/null -w "%{http_code}" --max-time 30 \
             "${{ secrets.ROKOMO_SUPABASE_URL }}/rest/v1/" \
             -H "apikey: ${{ secrets.ROKOMO_SUPABASE_ANON_KEY }}" \
-            -H "Authorization: Bearer ${{ secrets.ROKOMO_SUPABASE_ANON_KEY }}")
+            -H "Authorization: Bearer ${{ secrets.ROKOMO_SUPABASE_ANON_KEY }}" || echo "000")
           echo "rokomo-check-app REST: HTTP $response"
-          if [ "$response" -ge 400 ]; then
+          if [ "$response" = "000" ]; then
+            echo "::warning::rokomo-check-app REST: connection failed (project may be paused)"
+          elif [ "$response" -ge 400 ]; then
             echo "::warning::rokomo-check-app REST returned HTTP $response"
           fi
 
       - name: Query rokomo-check-app (DB activity)
+        continue-on-error: true
         run: |
-          response=$(curl -s -w "\n%{http_code}" \
+          http_code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 30 \
             "${{ secrets.ROKOMO_SUPABASE_URL }}/rest/v1/rpc/now" \
             -X POST \
             -H "apikey: ${{ secrets.ROKOMO_SUPABASE_ANON_KEY }}" \
             -H "Authorization: Bearer ${{ secrets.ROKOMO_SUPABASE_ANON_KEY }}" \
-            -H "Content-Type: application/json")
-          http_code=$(echo "$response" | tail -1)
+            -H "Content-Type: application/json" || echo "000")
           echo "rokomo-check-app DB query: HTTP $http_code"
-          if [ "$http_code" -ge 400 ]; then
+          if [ "$http_code" = "000" ]; then
+            echo "::warning::rokomo-check-app DB query: connection failed"
+          elif [ "$http_code" -ge 400 ]; then
             echo "::warning::rokomo-check-app DB query returned HTTP $http_code"
           fi
 
       - name: Ping rokomo-check-app (Auth)
+        continue-on-error: true
         run: |
-          response=$(curl -s -o /dev/null -w "%{http_code}" \
+          response=$(curl -s -o /dev/null -w "%{http_code}" --max-time 30 \
             "${{ secrets.ROKOMO_SUPABASE_URL }}/auth/v1/health" \
-            -H "apikey: ${{ secrets.ROKOMO_SUPABASE_ANON_KEY }}")
+            -H "apikey: ${{ secrets.ROKOMO_SUPABASE_ANON_KEY }}" || echo "000")
           echo "rokomo-check-app Auth: HTTP $response"
-          if [ "$response" -ge 400 ]; then
+          if [ "$response" = "000" ]; then
+            echo "::warning::rokomo-check-app Auth: connection failed"
+          elif [ "$response" -ge 400 ]; then
             echo "::warning::rokomo-check-app Auth returned HTTP $response"
           fi
 
       # --- stroke-risk-check ---
       - name: Ping stroke-risk-check (REST API)
+        continue-on-error: true
         run: |
-          response=$(curl -s -o /dev/null -w "%{http_code}" \
+          response=$(curl -s -o /dev/null -w "%{http_code}" --max-time 30 \
             "${{ secrets.STROKE_SUPABASE_URL }}/rest/v1/" \
             -H "apikey: ${{ secrets.STROKE_SUPABASE_ANON_KEY }}" \
-            -H "Authorization: Bearer ${{ secrets.STROKE_SUPABASE_ANON_KEY }}")
+            -H "Authorization: Bearer ${{ secrets.STROKE_SUPABASE_ANON_KEY }}" || echo "000")
           echo "stroke-risk-check REST: HTTP $response"
-          if [ "$response" -ge 400 ]; then
+          if [ "$response" = "000" ]; then
+            echo "::warning::stroke-risk-check REST: connection failed (project may be paused)"
+          elif [ "$response" -ge 400 ]; then
             echo "::warning::stroke-risk-check REST returned HTTP $response"
           fi
 
       - name: Query stroke-risk-check (DB activity)
+        continue-on-error: true
         run: |
-          response=$(curl -s -w "\n%{http_code}" \
+          http_code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 30 \
             "${{ secrets.STROKE_SUPABASE_URL }}/rest/v1/rpc/now" \
             -X POST \
             -H "apikey: ${{ secrets.STROKE_SUPABASE_ANON_KEY }}" \
             -H "Authorization: Bearer ${{ secrets.STROKE_SUPABASE_ANON_KEY }}" \
-            -H "Content-Type: application/json")
-          http_code=$(echo "$response" | tail -1)
+            -H "Content-Type: application/json" || echo "000")
           echo "stroke-risk-check DB query: HTTP $http_code"
-          if [ "$http_code" -ge 400 ]; then
+          if [ "$http_code" = "000" ]; then
+            echo "::warning::stroke-risk-check DB query: connection failed"
+          elif [ "$http_code" -ge 400 ]; then
             echo "::warning::stroke-risk-check DB query returned HTTP $http_code"
           fi
 
       - name: Ping stroke-risk-check (Auth)
+        continue-on-error: true
         run: |
-          response=$(curl -s -o /dev/null -w "%{http_code}" \
+          response=$(curl -s -o /dev/null -w "%{http_code}" --max-time 30 \
             "${{ secrets.STROKE_SUPABASE_URL }}/auth/v1/health" \
-            -H "apikey: ${{ secrets.STROKE_SUPABASE_ANON_KEY }}")
+            -H "apikey: ${{ secrets.STROKE_SUPABASE_ANON_KEY }}" || echo "000")
           echo "stroke-risk-check Auth: HTTP $response"
-          if [ "$response" -ge 400 ]; then
+          if [ "$response" = "000" ]; then
+            echo "::warning::stroke-risk-check Auth: connection failed"
+          elif [ "$response" -ge 400 ]; then
             echo "::warning::stroke-risk-check Auth returned HTTP $response"
           fi
 
@@ -88,14 +104,16 @@ jobs:
           echo "## Supabase Keep Alive Results" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### rokomo-check-app" >> $GITHUB_STEP_SUMMARY
-          echo "- REST API: pinged" >> $GITHUB_STEP_SUMMARY
-          echo "- DB Query (rpc/now): pinged" >> $GITHUB_STEP_SUMMARY
-          echo "- Auth Health: pinged" >> $GITHUB_STEP_SUMMARY
+          echo "- REST API: attempted" >> $GITHUB_STEP_SUMMARY
+          echo "- DB Query (rpc/now): attempted" >> $GITHUB_STEP_SUMMARY
+          echo "- Auth Health: attempted" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### stroke-risk-check" >> $GITHUB_STEP_SUMMARY
-          echo "- REST API: pinged" >> $GITHUB_STEP_SUMMARY
-          echo "- DB Query (rpc/now): pinged" >> $GITHUB_STEP_SUMMARY
-          echo "- Auth Health: pinged" >> $GITHUB_STEP_SUMMARY
+          echo "- REST API: attempted" >> $GITHUB_STEP_SUMMARY
+          echo "- DB Query (rpc/now): attempted" >> $GITHUB_STEP_SUMMARY
+          echo "- Auth Health: attempted" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "- Schedule: Every 3 days" >> $GITHUB_STEP_SUMMARY
           echo "- Time: $(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "> If connection failed, restore the project at https://supabase.com/dashboard" >> $GITHUB_STEP_SUMMARY
