@@ -2,39 +2,100 @@ name: Supabase Keep Alive
 
 on:
   schedule:
-    # 5日ごとに実行（UTC 0:00 = JST 9:00）
-    - cron: '0 0 */5 * *'
+    # 3日ごとに実行（UTC 0:00 = JST 9:00）
+    - cron: '0 0 */3 * *'
   workflow_dispatch: # 手動実行も可能
 
 jobs:
   keep-alive:
     runs-on: ubuntu-latest
     steps:
-      - name: Ping rokomo-check-app
+      # --- rokomo-check-app ---
+      - name: Ping rokomo-check-app (REST API)
         run: |
           response=$(curl -s -o /dev/null -w "%{http_code}" \
             "${{ secrets.ROKOMO_SUPABASE_URL }}/rest/v1/" \
             -H "apikey: ${{ secrets.ROKOMO_SUPABASE_ANON_KEY }}" \
             -H "Authorization: Bearer ${{ secrets.ROKOMO_SUPABASE_ANON_KEY }}")
-          echo "rokomo-check-app: HTTP $response"
+          echo "rokomo-check-app REST: HTTP $response"
           if [ "$response" -ge 400 ]; then
-            echo "::warning::rokomo-check-app returned HTTP $response"
+            echo "::warning::rokomo-check-app REST returned HTTP $response"
           fi
 
-      - name: Ping stroke-risk-check
+      - name: Query rokomo-check-app (DB activity)
+        run: |
+          response=$(curl -s -w "\n%{http_code}" \
+            "${{ secrets.ROKOMO_SUPABASE_URL }}/rest/v1/rpc/now" \
+            -X POST \
+            -H "apikey: ${{ secrets.ROKOMO_SUPABASE_ANON_KEY }}" \
+            -H "Authorization: Bearer ${{ secrets.ROKOMO_SUPABASE_ANON_KEY }}" \
+            -H "Content-Type: application/json")
+          http_code=$(echo "$response" | tail -1)
+          echo "rokomo-check-app DB query: HTTP $http_code"
+          if [ "$http_code" -ge 400 ]; then
+            echo "::warning::rokomo-check-app DB query returned HTTP $http_code"
+          fi
+
+      - name: Ping rokomo-check-app (Auth)
+        run: |
+          response=$(curl -s -o /dev/null -w "%{http_code}" \
+            "${{ secrets.ROKOMO_SUPABASE_URL }}/auth/v1/health" \
+            -H "apikey: ${{ secrets.ROKOMO_SUPABASE_ANON_KEY }}")
+          echo "rokomo-check-app Auth: HTTP $response"
+          if [ "$response" -ge 400 ]; then
+            echo "::warning::rokomo-check-app Auth returned HTTP $response"
+          fi
+
+      # --- stroke-risk-check ---
+      - name: Ping stroke-risk-check (REST API)
         run: |
           response=$(curl -s -o /dev/null -w "%{http_code}" \
             "${{ secrets.STROKE_SUPABASE_URL }}/rest/v1/" \
             -H "apikey: ${{ secrets.STROKE_SUPABASE_ANON_KEY }}" \
             -H "Authorization: Bearer ${{ secrets.STROKE_SUPABASE_ANON_KEY }}")
-          echo "stroke-risk-check: HTTP $response"
+          echo "stroke-risk-check REST: HTTP $response"
           if [ "$response" -ge 400 ]; then
-            echo "::warning::stroke-risk-check returned HTTP $response"
+            echo "::warning::stroke-risk-check REST returned HTTP $response"
           fi
 
+      - name: Query stroke-risk-check (DB activity)
+        run: |
+          response=$(curl -s -w "\n%{http_code}" \
+            "${{ secrets.STROKE_SUPABASE_URL }}/rest/v1/rpc/now" \
+            -X POST \
+            -H "apikey: ${{ secrets.STROKE_SUPABASE_ANON_KEY }}" \
+            -H "Authorization: Bearer ${{ secrets.STROKE_SUPABASE_ANON_KEY }}" \
+            -H "Content-Type: application/json")
+          http_code=$(echo "$response" | tail -1)
+          echo "stroke-risk-check DB query: HTTP $http_code"
+          if [ "$http_code" -ge 400 ]; then
+            echo "::warning::stroke-risk-check DB query returned HTTP $http_code"
+          fi
+
+      - name: Ping stroke-risk-check (Auth)
+        run: |
+          response=$(curl -s -o /dev/null -w "%{http_code}" \
+            "${{ secrets.STROKE_SUPABASE_URL }}/auth/v1/health" \
+            -H "apikey: ${{ secrets.STROKE_SUPABASE_ANON_KEY }}")
+          echo "stroke-risk-check Auth: HTTP $response"
+          if [ "$response" -ge 400 ]; then
+            echo "::warning::stroke-risk-check Auth returned HTTP $response"
+          fi
+
+      # --- Summary ---
       - name: Summary
         run: |
           echo "## Supabase Keep Alive Results" >> $GITHUB_STEP_SUMMARY
-          echo "- rokomo-check-app: pinged" >> $GITHUB_STEP_SUMMARY
-          echo "- stroke-risk-check: pinged" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### rokomo-check-app" >> $GITHUB_STEP_SUMMARY
+          echo "- REST API: pinged" >> $GITHUB_STEP_SUMMARY
+          echo "- DB Query (rpc/now): pinged" >> $GITHUB_STEP_SUMMARY
+          echo "- Auth Health: pinged" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### stroke-risk-check" >> $GITHUB_STEP_SUMMARY
+          echo "- REST API: pinged" >> $GITHUB_STEP_SUMMARY
+          echo "- DB Query (rpc/now): pinged" >> $GITHUB_STEP_SUMMARY
+          echo "- Auth Health: pinged" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- Schedule: Every 3 days" >> $GITHUB_STEP_SUMMARY
           echo "- Time: $(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_STEP_SUMMARY
